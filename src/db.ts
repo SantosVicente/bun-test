@@ -1,26 +1,31 @@
 import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { sql } from "drizzle-orm";
-import { sqliteTable, integer, real, text } from "drizzle-orm/sqlite-core";
+import { drizzle as drizzleBun } from "drizzle-orm/bun-sqlite";
+import { drizzle as drizzleTurso } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
+import { products } from "./schema";
+export { products };
 
-export const products = sqliteTable("products", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  price: real("price").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .default(sql`(strftime('%s','now') * 1000)`),
-});
+export const schema = { products };
 
-const sqlite = new Database("app.sqlite");
+let dbInstance;
 
-sqlite.run(
-  `CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    price REAL NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-  )`
-);
+if (process.env.TURSO_DATABASE_URL) {
+  if (!process.env.TURSO_AUTH_TOKEN) {
+    throw new Error("TURSO_AUTH_TOKEN não definido");
+  }
 
-export const db = drizzle(sqlite);
+  console.log("Conectando ao banco de dados Turso...");
+  const tursoClient = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+
+  dbInstance = drizzleTurso(tursoClient, { schema });
+} else {
+  console.log("Conectando ao banco de dados local (app.sqlite)...");
+  const sqlite = new Database("app.sqlite");
+
+  dbInstance = drizzleBun(sqlite, { schema });
+}
+
+export const db = dbInstance;

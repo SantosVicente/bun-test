@@ -11,6 +11,7 @@ coverage
 *.lcov
 
 .cursor
+app.sqlite
 
 # logs
 logs
